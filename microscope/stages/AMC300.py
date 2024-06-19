@@ -14,6 +14,7 @@ class AMC300Adapter(microscope.abc.Stage):
         self.ip = ip
         self.port = port
         self.amc = AMC.Device(ip, port)
+        self.amc = AMC.Device(ip, port)
         self.timeout = 30 #TODO: check this value
 
     def connect(self):
