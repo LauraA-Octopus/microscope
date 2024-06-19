@@ -3,7 +3,6 @@ import microscope
 import microscope.abc
 import microscope._utils
 import os
-#import AMC
 
 AMC_files = 'C:\\Users\\LSFMICRO\\Documents\\microscope\\microscope\\stages\\AMCsoft\\AMC.py'
 AMC = os.path.realpath(AMC_files)
@@ -13,7 +12,6 @@ class AMC300Adapter(microscope.abc.Stage):
         super().__init__(self, ip, port)
         self.ip = ip
         self.port = port
-        self.amc = AMC.Device(ip, port)
         self.amc = AMC.Device(ip, port)
         self.timeout = 30 #TODO: check this value
 
