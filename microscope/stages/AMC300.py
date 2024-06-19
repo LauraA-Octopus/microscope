@@ -2,7 +2,7 @@ import time
 import microscope
 import microscope.abc
 import microscope._utils
-import AMCsoft.AMC # where AMCsoft is where all the proprietary software is kept
+import AMC 
 
 class AMC300Adapter(microscope.abc.Stage):
 
@@ -10,7 +10,7 @@ class AMC300Adapter(microscope.abc.Stage):
         super().__init__()
         self.ip = ip
         self.port = port
-        self.amc = AMCsoft.AMC.Device(ip, port)
+        self.amc = AMC.Device(ip, port)
         self.timeout = 30 #TODO: check this value
 
     def connect(self):
