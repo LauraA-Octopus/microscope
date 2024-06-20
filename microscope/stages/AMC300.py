@@ -1,15 +1,15 @@
+import os
 import time
 import microscope
 import microscope.abc
 import microscope._utils
-import os
 
 AMC_files = 'C:\\Users\\LSFMICRO\\Documents\\microscope\\microscope\\stages\\AMCsoft\\AMC.py'
 AMC = os.path.realpath(AMC_files)
  
-class AMC300Adapter(microscope.abc.Stage):
-    def __init__(self, ip, port):
-        super().__init__(self, ip, port)
+class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
+    def __init__(self, ip, port, **kwargs):
+        super().__init__(**kwargs)
         self.ip = ip
         self.port = port
         self.amc = AMC.Device(ip, port)
