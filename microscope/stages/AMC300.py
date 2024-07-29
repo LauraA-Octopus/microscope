@@ -4,15 +4,16 @@ import microscope
 import microscope.abc
 import microscope._utils
 
-AMC_files = 'C:\\Users\\LSFMICRO\\Documents\\microscope\\microscope\\stages\\AMCsoft\\AMC.py'
-AMC = os.path.realpath(AMC_files)
+#AMC_files = 'C:\\Users\\LSFMICRO\\Documents\\microscope\\microscope\\stages\\AMCsoft\\AMC.py'
+#os.path.realpath(AMC_files)
+from microscope.stages.AMCsoft.AMC import *
  
-class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
+class AMC300Adapter(microscope.abc.Stage):
     def __init__(self, ip, port, **kwargs):
         super().__init__(**kwargs)
         self.ip = ip
         self.port = port
-        self.amc = AMC.Device(ip, port)
+        self.amc = Device(ip, port)
         self.timeout = 30 #TODO: check this value
         
 
@@ -104,17 +105,17 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
         if axis == 0 or axis == 1:
             distance = 100  #TODO: ask Tom/Benji about sensible values
             if direction == "positive":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) + distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) + distance)
             elif direction == "negative":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) - distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) - distance)
             else:
                 print("Invalid direction. Please specify 'positive' or 'negative' for axis 0 and 1")
         elif axis == 2:
             distance = 50 #TODO: ask Tom/Benji about sensible values
             if direction == "positive":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) + distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) + distance)
             elif direction == "negative":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) - distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) - distance)
             else:
                 print("Invalid axis. Please specify axis 0, 1 or 2")
 
@@ -122,17 +123,17 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
         if axis == 0 or axis == 1:
             distance = 10 #TODO: ask Tom/Benji about sensible values
             if direction == "positive":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) + distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) + distance)
             elif direction == "negative":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) - distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) - distance)
             else:
                 print("Invalid direction. Please specify a 'positive' or 'negative' direction")
         elif axis == 2:
             distance = 5 #TODO: ask Tom/Benji about sensible values
             if direction == "positive":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) + distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) + distance)
             elif direction == "negative":
-                self.move_to_position(axis, self.amc.move.getPosition(axis) - distance)
+                self.move_to(axis, self.amc.move.getPosition(axis) - distance)
             else:
                 print("invalid axis. Please specify axis 0, 1 or 2")
 
@@ -167,9 +168,9 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
         return self.amc.control.getCurrentOutputVoltage(axis)
 
     def home(self):
-        self.move_to_position(0, 3984.1)
-        self.move_to_position(1, 3075.7)
-        self.move_to_position(2, 4539.6)
+        self.move_to(0, 3984.1)
+        self.move_to(1, 3075.7)
+        self.move_to(2, 4539.6)
         print("Axes homed successfully.")
 
     def _do_shutdown(self) -> None:
@@ -208,7 +209,7 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
 #            if choice == '1':
 #                axis = int(input("Enter axis number (0, 1, or 2): "))
 #                position_um = float(input("Enter target position (um): "))
-#                self.move_to_position(axis, position_um)
+#                self.move_to(axis, position_um)
 
 #            elif choice == '2':
 #                #axis = int(input("Enter axis number (0, 1, or 2): "))
@@ -264,7 +265,7 @@ if __name__ == "__main__":
     port = 9090
     controller = AMC300Adapter(ip, port)
     controller.connect()
-    try:
-        controller.process_user_input()
-    finally:
-        controller.close()
+    #try:
+    #    controller.process_user_input()
+    #finally:
+    #    controller.close()
