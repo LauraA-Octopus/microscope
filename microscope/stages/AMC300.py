@@ -14,6 +14,7 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
         self.port = port
         self.amc = AMC.Device(ip, port)
         self.timeout = 30 #TODO: check this value
+        
 
     def connect(self):
         self.amc.connect()
@@ -23,7 +24,9 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
 
 
     def move_to(self, axis, position_um):
+        
         position_nm = position_um * 1000
+
         if axis in [0, 1]:
             if not (100 * 1000 <= position_nm <= 5900 * 1000):
                 print("Position out of permitted range. Command not sent")
@@ -33,9 +36,11 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
                 print("Position out of permitted range. Command not sent")
                 return
         else:
-            print("Invalid axis. Command not sent")
+            print("Invalid axis name. Command not sent")
             return
         
+        # NOTE TO SELF: If setControlTargetPosition and setControlMove require numerical,
+        #               I might need to change it back to int 0, 1, 2 
         self.amc.move.setControlTargetPosition(axis, position_nm)
         self.amc.control.setControlMove(axis, True)
 
@@ -170,7 +175,10 @@ class AMC300Adapter(microscope.abc.Device, microscope.abc.Stage):
     def _do_shutdown(self) -> None:
         pass
 
+    #@property
     def axes(self):
+        # Mapping from string axis names to their corresponding hardware indices
+        #return {name: self.amc.move.getAxis(index) for name, index in self._axis_map.items()}
         pass
 
     def move_by(self, axis, distance):
