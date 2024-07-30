@@ -169,7 +169,7 @@ class AMC300Adapter(microscope.abc.Stage):
         print("Axes homed successfully.")
 
     def _do_shutdown(self) -> None:
-        pass
+        controller.close()
 
     def axes(self):
         pass
