@@ -25,13 +25,13 @@ class HubnerCwave(microscope.abc.LightSource):
     def disconnect(self):
         self._cwave.disconnect()
 
-    def set_initial_mode(self, simulator, mode):
+    def set_initial_mode(self, mode):
         if mode =="VIS":
-            simulator.set_shutter(ShutterChannel.LaserOut, True) 
-            simulator.set_shutter(ShutterChannel.OpoOut, False)
+            self._cwave.set_shutter(ShutterChannel.LaserOut, True) 
+            self._cwave.set_shutter(ShutterChannel.OpoOut, False)
         elif mode =="IR":
-            simulator.set_shutter(ShutterChannel.OpoOut, True)
-            simulator.set_shutter(ShutterChannel.LaserOut, False)
+            self._cwave.set_shutter(ShutterChannel.OpoOut, True)
+            self._cwave.set_shutter(ShutterChannel.LaserOut, False)
         _logger.info(f"Initial mode set to {mode}.")
 
     def choose_mode(self):
@@ -39,11 +39,11 @@ class HubnerCwave(microscope.abc.LightSource):
         if mode not in ["VIS", "IR"]:
             print("Invalid mode. Please choose 'VIS' or 'IR'")
             return
-        self.set_initial_mode(self.simulator, mode)
+        self.set_initial_mode(self._cwave, mode)
 
-    def change_wavelength(self, simulator, wavelength):
-        simulator.dial(wavelength, request_shg=False)
-        while not simulator.get_dial_done():
+    def change_wavelength(self, wavelength):
+        self._cwave.dial(wavelength, request_shg=False)
+        while not self._cwave.get_dial_done():
             _logger.info("Waiting for dial operation to complete...")
             time.sleep(20)
         _logger.info(f"Wavelength changed to {wavelength} nm")
@@ -52,7 +52,7 @@ class HubnerCwave(microscope.abc.LightSource):
         while True:
             try:
                 wavelength = float(input("Enter the desired wavelength in nm: ").strip())
-                self.change_wavelength(self.simulator, wavelength)
+                self.change_wavelength(self._cwave, wavelength)
                 break
             except ValueError:
                 print("Invalid input. Please enter a numeric value.")
@@ -81,7 +81,7 @@ class HubnerCwave(microscope.abc.LightSource):
     def get_temperature_setpoint(self, channel: TemperatureChannel) -> float:
         '''Gets temperature setpoint'''
         assert isinstance(channel, TemperatureChannel)
-        temperature_setpoint = float(self.simulator.__query('t{}_set?'.format(channel.value)))/1000
+        temperature_setpoint = float(self._cwave.__query('t{}_set?'.format(channel.value)))/1000
         _logger.debug(f"Temperature setpoint for channel {channel.value}: {temperature_setpoint}")
         return temperature_setpoint
 
@@ -89,14 +89,14 @@ class HubnerCwave(microscope.abc.LightSource):
         '''Gets corresponding temperature of a wavelength according to mapping'''
         assert isinstance(wavelength, (int, float))
         mapping_temperature = float(
-            self.simulator.__query('mapping_{}?{}'.format(channel.value, int(wavelength*100))).split(':')[1]
+            self._cwave.__query('mapping_{}?{}'.format(channel.value, int(wavelength*100))).split(':')[1]
         )/1000
         _logger.debug(f"Mapping temperature for channel {channel.value} at wavelength {wavelength}: {mapping_temperature}")
         return mapping_temperature
 
     def get_opoLock_status(self) -> bool:
         '''Gets the OpoLock status'''
-        status = self.simulator.opoLock()
+        status = self._cwave.opoLock()
         _logger.debug(f"OpoLock status: {status}")
         return status
 
