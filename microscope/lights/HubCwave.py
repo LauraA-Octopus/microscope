@@ -44,6 +44,9 @@ class HubCwave(microscope.abc.LightSource):
             f"StatusBits: {log.statusBits}"
         ]
 
+    def enable(self) -> None:
+        return self.cwave.set_laser(True)
+
     def get_is_on(self) -> bool:
         return self.cwave.get_laser()
     
@@ -56,21 +59,31 @@ class HubCwave(microscope.abc.LightSource):
     def set_pd_signal(self, pd_signal: int) -> None:
         # Sets the photodiode signal
         assert isinstance(pd_signal, int)
-        self.__query_value('pd_signal', pd_signal)
+        return self.cwave.__query_value('pd_signal', pd_signal)
     
     def _do_set_power(self, power: float) -> None:
         max_pd_signal = 1000.0
         pd_signal = int(power * max_pd_signal)
-        self.cwave.set_pd_signal(pd_signal)
-    
-    def enable(self) -> None:
-        return self.cwave.set_laser(True)
+        return self.set_pd_signal(pd_signal)
+
+    def get_set_power(self) -> float:
+        return super().get_set_power()
     
     def disable(self) -> None:
-        return self.cwave.set_laser(False)
+        self.cwave.set_laser(False)
+        return self.cwave.disconnect()
     
     def hardware_bits(self):
         return self.cwave.test_status_bits()
+    
+    def set_initial_mode(self, mode):
+        if mode =="VIS":
+            self.cwave.set_shutter(ShutterChannel.LaserOut, True) 
+            self.cwave.set_shutter(ShutterChannel.OpoOut, False)
+        elif mode =="IR":
+            self.cwave.set_shutter(ShutterChannel.OpoOut, True)
+            self.cwave.set_shutter(ShutterChannel.LaserOut, False)
+        _logger.info(f"Initial mode set to {mode}.")
     
     def change_wavelength(self, wavelength):
         self.cwave.dial(wavelength, request_shg=False)
