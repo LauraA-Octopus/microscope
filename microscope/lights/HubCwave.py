@@ -234,6 +234,9 @@ class HubCwave(microscope.abc.LightSource):
             _logger.error(f"Failed to set mirror position: {e}")
             raise
 
+    def status_summary(self):
+        return self.cwave.get_log()
+
 
     
 
