@@ -24,6 +24,8 @@ def with_error_handling(func):
             _logger.error(f"Unexpected error in {func.__name__}: {e}")
             raise
     return wrapper
+
+
 class HubCwave(microscope.abc.LightSource):
     def __init__(self, address: str, port: int):
         super().__init__()
