@@ -1,4 +1,8 @@
 import time
+import sys
+import traceback
+import typing
+import inspect
 import logging
 import microscope
 from cwave import *
@@ -8,22 +12,31 @@ import microscope.abc
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 _logger = logging.getLogger(__name__)
 
-
-def SomeSpecificException(Exception):
-    # Define here specific exceptions for specific items (not sure this is needed)
-    pass
-
-def with_error_handling(func):
+def error_handling(function):
     def wrapper(*args, **kwargs):
+        error_message = ""
         try:
-            return func(*args, **kwargs)
-        except SomeSpecificException as e:
-            _logger.error(f"An error occurred in {func.__name__}: {e}")
-            raise
+            result = function(*args, **kwargs)
+            return result
         except Exception as e:
-            _logger.error(f"Unexpected error in {func.__name__}: {e}")
-            raise
+            _logger.error(f"Exception type: {type(e).__name__}")
+            _logger.error(f"Exception args: {e.args}")
+            _logger.error("Traceback:")
+            traceback.print_tb(e.__traceback__)
+            tracebackmessage = traceback.format_tb(e.__traceback__)
+            # Retrieve the last n lines of code from the traceback
+            stack = traceback.extract_tb(sys.exc_info()[2])
+            line_number = stack[-1].lineno
+            function = stack[-1].name
+            source_code = inspect.getsourcelines(inspect.getmodule(inspect.currentframe()))[0]
+            relevant_code = source_code[line_number-10: line_number]
+            _logger.error(f"Formatted Traceback Message:")
+            _logger.error("".join(tracebackmessage))
+            _logger.error(f"line {line_number}, in {function}:")
+            _logger.error("Relevant code snippet:")
+            _logger.error("".join(relevant_code))
     return wrapper
+
 
 
 class HubCwave(microscope.abc.LightSource):
@@ -31,13 +44,13 @@ class HubCwave(microscope.abc.LightSource):
         super().__init__()
         self.cwave = CWave()
         try:
-            self.cwave.connect(address="192.168.0.4", port=10001)
+            self.cwave.connect(address, port)
             _logger.info(f"Connected to CWave at {address}:{port}")
         except ConnectionError as e:
             _logger.error(f"Falied to connect to CWave: {e}", exc_info=True)
             raise
 
-    @with_error_handling
+    @error_handling
     def get_status(self) -> typing.List[str]:
         log = self.cwave.get_log()
         return[
@@ -54,23 +67,23 @@ class HubCwave(microscope.abc.LightSource):
             f"StatusBits: {log.statusBits}"
             ]
 
-    @with_error_handling
+    @error_handling
     def enable(self) -> None:
         self.cwave.set_laser(True)
         _logger.info("Laser enabled")
         
-    @with_error_handling    
+    @error_handling    
     def get_is_on(self) -> bool:
         return self.cwave.get_laser()
         
-    @with_error_handling    
+    @error_handling    
     def _do_get_power(self) -> float:
         log = self.cwave.get_log()
         pd_signal = log.pdSignal
         max_pd_signal = 1000.0
         return min(max(pd_signal / max_pd_signal, 0.0), 1.0)
         
-    @with_error_handling
+    @error_handling
     def set_pd_signal(self, pd_signal: int) -> None:
         # Sets the photodiode signal
         assert isinstance(pd_signal, int)
@@ -81,7 +94,7 @@ class HubCwave(microscope.abc.LightSource):
             raise RuntimeError(f"Failed to set pd_signal. Device response: {response}")
         _logger.info(f"Set pd_signal to {pd_signal}")
         
-    @with_error_handling
+    @error_handling
     def _do_set_power(self, power: float) -> None:
         max_pd_signal = 1000.0
         pd_signal = int(power * max_pd_signal)
@@ -90,17 +103,17 @@ class HubCwave(microscope.abc.LightSource):
     def get_set_power(self) -> float:
         return super().get_set_power()
     
-    @with_error_handling
+    @error_handling
     def disable(self) -> None:
         self.cwave.set_laser(False)
         self.cwave.disconnect()
         _logger.info("Laser disabled and disconnected")
 
-    @with_error_handling        
+    @error_handling        
     def hardware_bits(self) -> bool:
         return self.cwave.test_status_bits()
         
-    @with_error_handling
+    @error_handling
     def set_initial_mode(self, mode: str) -> None:
         if mode =="VIS":
             self.cwave.set_shutter(ShutterChannel.LaserOut, True) 
@@ -112,7 +125,7 @@ class HubCwave(microscope.abc.LightSource):
             raise ValueError("Invalid mode. Expected 'VIS' or 'IR'")
         _logger.info(f"Initial mode set to {mode}")
             
-    @with_error_handling        
+    @error_handling        
     def change_wavelength(self, wavelength: float) -> None:
         self.cwave.dial(wavelength, request_shg=False)
         while not self.cwave.get_dial_done():
@@ -132,11 +145,11 @@ class HubCwave(microscope.abc.LightSource):
                 _logger.error(f"Falied to input wavelength: {e}", exc_info=True)
                 raise
             
-    @with_error_handling
+    @error_handling
     def get_temp_setpoint(self, channel: TemperatureChannel) -> float:
         return self.cwave.get_temperature_setpoint(channel)
 
-    @with_error_handling
+    @error_handling
     def set_temp_setpoint(self, channel:TemperatureChannel, setpoint: float) -> None:
         assert isinstance(setpoint, (float, int))
         if setpoint < 0:
@@ -144,40 +157,40 @@ class HubCwave(microscope.abc.LightSource):
         self.cwave.set_temperature_setpoint(channel, setpoint)
         _logger.info(f"Set temperature setpoint for {channel} to {setpoint}")
         
-    @with_error_handling
+    @error_handling
     def get_shutter(self, shutter: ShutterChannel) -> bool:
         return self.cwave.get_shutter(shutter)
         
-    @with_error_handling
+    @error_handling
     def set_shutter(self, shutter: ShutterChannel, open_shutter: bool) -> None:
         self.cwave.set_shutter(shutter, open_shutter)
         state = "open" if open_shutter else "closed"
         _logger.info(f"Set shutter {shutter} to {state}")
         
-    @with_error_handling
+    @error_handling
     def get_piezo_mode(self, channel:PiezoChannel) -> PiezoMode:
         return self.cwave.get_piezo_mode(channel)
         
-    @with_error_handling
+    @error_handling
     def set_piezo_mode(self, channel: PiezoChannel, mode: PiezoMode) -> None:
         self.cwave.set_piezo_mode(channel, mode)
         _logger.info(f"Set piezo mode for {channel} to {mode}")
         
-    @with_error_handling
+    @error_handling
     def get_galvo_position(self) -> int:
         return self.cwave.get_galvo_position()
         
-    @with_error_handling
+    @error_handling
     def set_galvo_position(self, position: int) -> None:
         assert isinstance (position, int)
         self.cwave.set_galvo_position(position)
         _logger.info(f"Set galvo position to {position}")
         
-    @with_error_handling
+    @error_handling
     def get_mirror_position(self) -> bool:
         return self.cwave.get_mirror()
         
-    @with_error_handling
+    @error_handling
     def set_mirror_position(self, position: bool) -> None:
         assert isinstance(position, bool)
         self.cwave.set_mirror(position)
