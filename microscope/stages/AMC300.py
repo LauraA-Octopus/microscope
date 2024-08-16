@@ -2,17 +2,20 @@ import os
 import typing
 import time
 import microscope
+import threading
 import microscope.abc
 import microscope._utils
+#from AMC import Device as AMCDevice
 from microscope.stages.AMCsoft.AMC import Device as AMCDevice
 
 class AMC300Axis(microscope.abc.StageAxis):
 
-    def __init__(self, amc, index, limits: tuple[float, float], timeout:float):
+    def __init__(self, amc, index, limits: tuple[float, float], timeout:float, lock):
         self._amc = amc
         self._index = index
         self._limits = microscope.AxisLimits(*limits)
         self._timeout = timeout
+        self._lock = lock
         super().__init__()
 
     def move_by(self, delta: float) -> None:
@@ -21,14 +24,18 @@ class AMC300Axis(microscope.abc.StageAxis):
 
     def move_to(self, pos: float) -> None:
         """Move axis to specified position."""
-        self._amc.move.setControlTargetPosition(self._index, pos)
-        self._amc.control.setControlMove(self._index, True)
+        with self._lock:
+            self._amc.move.setControlTargetPosition(self._index, pos)
+            self._amc.control.setControlMove(self._index, True)
 
 
     @property
     def position(self) -> float:
         """Current axis position."""
-        return self._amc.move.getPosition(self._index)
+        with self._lock:
+            x = self._amc.move.getPosition(self._index)
+        #print(x)
+        return x
 
     @property
     def limits(self) -> microscope.AxisLimits:
@@ -43,22 +50,27 @@ class AMC300Axis(microscope.abc.StageAxis):
 class AMC300Adapter(microscope.abc.Stage):
 
     def __init__(self, ip, port, x_limits, y_limits, z_limits, xyz=(0, 1, 2), timeout:float=30, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.ip = ip
         self.port = port
         self._amc = AMCDevice(ip, port)
+        self._lock = threading.RLock()
         self._axes = {
-            "x": AMC300Axis(self._amc, xyz[0], x_limits, timeout),
-            "y": AMC300Axis(self._amc, xyz[1], y_limits, timeout),
-            "z": AMC300Axis(self._amc, xyz[2], z_limits, timeout)
+            "x": AMC300Axis(self._amc, xyz[0], x_limits, timeout, self._lock),
+            "y": AMC300Axis(self._amc, xyz[1], y_limits, timeout, self._lock),
+            "z": AMC300Axis(self._amc, xyz[2], z_limits, timeout, self._lock)
         }
+        
         self.connect()
         
+        
     def connect(self):
-        self._amc.connect()
+        with self._lock:
+            self._amc.connect()
 
     def close(self):
-        self._amc.close()
+        with self._lock:
+            self._amc.close()
 
 
     @property
