@@ -2,17 +2,28 @@ import time
 import sys
 import traceback
 import typing
+import threading
 import inspect
 import logging
 import microscope
 from cwave import *
+from datetime import datetime
 import microscope.abc
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+current_time = datetime.now().strftime("%Y-%m-%d")
+log_filename = f"hubcwave_{current_time}.log"
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+    handlers=[
+        logging.FileHandler(log_filename),  # Write logs to a file named with date and time
+        logging.StreamHandler()  # Also output logs to the console
+    ]
+)
+
 _logger = logging.getLogger(__name__)
 
- 
 
 #def error_handling(self):
 #    def wrapper(*args, **kwargs):
@@ -42,11 +53,13 @@ _logger = logging.getLogger(__name__)
 
 #class HubCwave(microscope.abc.LightSource)
 class HubCwave():      
-    def __init__(self, address, port, **kwargs):
+    def __init__(self, address, port, log_interval=1, **kwargs):
         super().__init__(**kwargs)
         self.address = address
         self.port = port
         self._cwave = CWave()
+        self.log_interval = log_interval
+        self._stop_logging = threading.Event()
 
 #    @error_handling
     def hubconnect(self, retries=3, delay=5):
@@ -77,6 +90,28 @@ class HubCwave():
             f"PdReserve: {log.pdReserve}",
             f"StatusBits: {log.statusBits}"
             ]
+    
+    def log_parameters(self):
+        while not self._stop_logging.is_set():
+            log = self._cwave.get_log()
+            pd_signal = log.pdSignal
+            pd_shg = log.pdShg
+            _logger.info(f"PdSignal: {pd_signal}, PdShg: {pd_shg}")
+            time.sleep(self.log_interval)
+
+    def start_logging(self):
+        """
+        Starts logging PdSignal and PdShg in a separate thread.
+        """
+        self._stop_logging.clear()
+        logging_thread = threading.Thread(target=self.log_parameters)
+        logging_thread.start()
+
+    def stop_logging(self):
+        """
+        Stops the logging of PdSignal and PdShg.
+        """
+        self._stop_logging.set()
 
 #    @error_handling
     def enable(self) -> None:
@@ -229,7 +264,7 @@ class HubCwave():
                 print(dial)
 
             elif choice == '2':
-                temp_setpoint = self.get_temp_setpoint(channel)
+                temp_setpoint = self.get_temp_setpoint()
                 print(temp_setpoint)
 
             elif choice == '3':
@@ -261,6 +296,11 @@ if __name__ == "__main__":
     port = 10001
     controller = HubCwave(address, port)
     controller.hubconnect()
-    controller.process_user_input()
+    #controller.process_user_input()
     #controller.enable()
+    controller.start_logging()
+    try:
+        controller.process_user_input()
+    finally:
+        controller.stop_logging()
     
