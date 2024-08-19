@@ -56,9 +56,17 @@ class HubCwave():
         #    raise
 
 #    @error_handling
-    def hubconnect(self):
-        self._cwave.connect(address, port)
-        print("Connection established successfully")
+    def hubconnect(self, retries=3, delay=5):
+        for attempt in range(retries):
+            try:
+                self._cwave.connect(self.address, self.port)
+                print("Connection established successfully")
+                return
+            except ConnectionError as e:
+                _logger.error(f"Connection attempt {attempt + 1} failed: {e}")
+                if attempt < retries - 1:
+                    time.sleep(delay)
+        raise ConnectionError("All connection attempts failed")
 
 #    @error_handling
     def get_status(self) -> typing.List[str]:
