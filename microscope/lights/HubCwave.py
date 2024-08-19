@@ -47,26 +47,19 @@ class HubCwave():
         self.address = address
         self.port = port
         self._cwave = CWave()
-        self.hubconnect()
-        #try:
-        #    self.cwave.connect(address, port)
-        #    _logger.info(f"Connected to CWave at {address}:{port}")
-        #except ConnectionError as e:
-        #    _logger.error(f"Falied to connect to CWave: {e}", exc_info=True)
-        #    raise
 
 #    @error_handling
     def hubconnect(self, retries=3, delay=5):
         for attempt in range(retries):
             try:
                 self._cwave.connect(self.address, self.port)
-                print("Connection established successfully")
+                print(f"Connection established successfully to {address}:{port}")
                 return
             except ConnectionError as e:
                 _logger.error(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt < retries - 1:
                     time.sleep(delay)
-        raise ConnectionError("All connection attempts failed")
+        raise ConnectionError(f"All connection attempts failed, trying to connect to {address}:{port}")
 
 #    @error_handling
     def get_status(self) -> typing.List[str]:
@@ -236,7 +229,7 @@ class HubCwave():
                 print(dial)
 
             elif choice == '2':
-                temp_setpoint = self.get_temp_setpoint()
+                temp_setpoint = self.get_temp_setpoint(channel)
                 print(temp_setpoint)
 
             elif choice == '3':
@@ -268,5 +261,6 @@ if __name__ == "__main__":
     port = 10001
     controller = HubCwave(address, port)
     controller.hubconnect()
-    controller.enable()
+    controller.process_user_input()
+    #controller.enable()
     
