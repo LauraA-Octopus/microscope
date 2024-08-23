@@ -1,4 +1,5 @@
 import time
+import os
 import sys
 import traceback
 import typing
@@ -6,13 +7,18 @@ import threading
 import inspect
 import logging
 import microscope
-from cwave import *
+from microscope.lights.cwave_old import *
 from datetime import datetime
 import microscope.abc
 
 # Configure logging
 current_time = datetime.now().strftime("%Y-%m-%d")
-log_filename = f"hubcwave_{current_time}.log"
+
+log_directory = "D:/HubnerLogs/"
+os.makedirs(log_directory, exist_ok=True)
+
+log_filename = os.path.join(log_directory, f"hubcwave_{current_time}.log")
+
 logging.basicConfig(
     level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
@@ -243,6 +249,9 @@ class HubCwave():
         state = "position 1" if position else "position 0"
         _logger.info(f"Set mirror to {state}")
 
+    def get_wavelength(self):
+        return self._cwave.get_dial_wavelength()
+
     def status_summary(self):
         return self._cwave.get_log()
     
@@ -260,10 +269,11 @@ class HubCwave():
 
             choice = input("Enter your choice: ")
             if choice == '1':
-                dial = self.change_wavelength()
+                wavelength = self.get_wavelength()
+                dial = self.change_wavelength(wavelength)
                 print(dial)
 
-            elif choice == '2':
+            elif choice == '2':               
                 temp_setpoint = self.get_temp_setpoint()
                 print(temp_setpoint)
 
@@ -275,7 +285,7 @@ class HubCwave():
                 print(self.get_shutter())
 
             elif choice == '5':
-                print(self.get_piezo_mode)
+                print(self.get_piezo_mode())
 
 
             elif choice == '6':

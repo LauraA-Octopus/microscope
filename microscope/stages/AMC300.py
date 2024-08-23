@@ -28,7 +28,6 @@ class AMC300Axis(microscope.abc.StageAxis):
             self._amc.move.setControlTargetPosition(self._index, pos)
             self._amc.control.setControlMove(self._index, True)
 
-
     @property
     def position(self) -> float:
         """Current axis position."""
@@ -345,90 +344,9 @@ class AMC300Adapter(microscope.abc.Stage):
     def _do_shutdown(self) -> None:
         self.close()
 
-    def move_by(self, axis, distance):
-        pass
-
-    def may_move_on_enable(self):
-        pass
-
-#    def process_user_input(self):
-#        while True:
-#            print("\nCommands:")
-#            print("1. Move to position")
-#            print("2. Get moving status")
-#            print("3. Rough jog")
-#            print("4. Fine jog")
-#            print("5. Set frequency")
-#            print("6. Set amplitude")
-#            print("7. Get frequency")
-#            print("8. Get amplitude")
-#            print("9. Get position and frequency")
-#            print("10. Get piezo amplitude (mV)")
-#            print("11. Home axes")
-#            print("12. Exit")
-
-#            choice = input("Enter your choice: ")
-
-#            if choice == '1':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                position_um = float(input("Enter target position (um): "))
-#                self.move_to(axis, position_um)
-
-#            elif choice == '2':
-#                #axis = int(input("Enter axis number (0, 1, or 2): "))
-#                self.get_moving_status()
-
-#            elif choice == '3':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                direction = input("Enter 'positive' or 'negative' direction: ")
-#                self.rough_jog(axis, direction)
-
-#            elif choice == '4':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                direction = input("Enter a 'positive' or 'negative' direction: ")
-#                self.fine_jog(axis, direction)
-
-#            elif choice == '5':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                frequency = float(input("Enter frequency (Hz): "))
-#                self.set_frequency(axis, frequency)
-
-#            elif choice == '6':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                amplitude = float(input("Enter amplitude (V): "))
-#                self.set_amplitude(axis, amplitude)
-
-#            elif choice == '7':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                print(f"Frequency for axis {axis}: {self.get_frequency(axis)}")
-
-#            elif choice == '8':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                print(f"Amplitude for axis {axis}: {self.get_amplitude(axis)}")
-
-#            elif choice == '9':
-                #axis = int(input("Enter axis number (0, 1, or 2): "))
-                #position = float(input("Enter target position (um): "))
-                #frequency = float(input("Enter frequency (Hz): "))
-#                print(f"Position and Frequency for the three axes are: {self.get_pos_and_freq()}")
-            
-#            elif choice == '10':
-#                axis = int(input("Enter axis number (0, 1, or 2): "))
-#                print(f"The piezo amplitude for axis {axis} is: {self.get_piezo_amplitude(axis)} mV")
-
-#            elif choice == '11':
-#                self.home()
-#            elif choice == '12':
-#                break
-#            else:
-#                print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     ip = "192.168.0.2"
     port = 9090
     controller = AMC300Adapter(ip, port)
     controller.connect()
-    #try:
-    #    controller.process_user_input()
-    #finally:
-    #    controller.close()
