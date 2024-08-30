@@ -162,6 +162,8 @@ class AMC300Adapter(microscope.abc.Stage):
         # simultaneous move of multiple axes.
         for axis_name, axis_delta in delta.items():
             axis = self.axes[axis_name]
+            # Set the controller to be in open loop mode
+            self._amc.control.getControlMove(self, axis) == False
             axis.move_by(axis_delta)
             axis.wait()
         
