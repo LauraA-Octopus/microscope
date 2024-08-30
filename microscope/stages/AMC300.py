@@ -25,8 +25,13 @@ class AMC300Axis(microscope.abc.StageAxis):
     def move_to(self, pos: float) -> None:
         """Move axis to specified position."""
         with self._lock:
-            self._amc.move.setControlTargetPosition(self._index, pos)
+            # move in closed loop mode
             self._amc.control.setControlMove(self._index, True)
+            self._amc.move.setControlTargetPosition(self._index, pos)
+        
+            # wait for the move to finish and switch to open loop
+            self.wait()
+            self._amc.control.setControlMove(self._index, False)
 
     @property
     def position(self) -> float:
@@ -136,6 +141,11 @@ class AMC300Adapter(microscope.abc.Stage):
 
         """
         return {name: axis.limits for name, axis in self.axes.items()}
+    
+    def wait(self):
+        timeout = self._timeout + time.time()
+        while self._amc.control.getStatusMovingAllAxes()[self._index] and time.time() < timeout:
+            time.sleep(0.1)
 
     def move_by(self, delta: typing.Mapping[str, float]) -> None:
         """Move axes by the corresponding amounts.
@@ -162,8 +172,6 @@ class AMC300Adapter(microscope.abc.Stage):
         # simultaneous move of multiple axes.
         for axis_name, axis_delta in delta.items():
             axis = self.axes[axis_name]
-            # Set the controller to be in open loop mode
-            self._amc.control.getControlMove(self, axis) == False
             axis.move_by(axis_delta)
             axis.wait()
         
