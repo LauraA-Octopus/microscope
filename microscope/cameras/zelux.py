@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
 
 import microscope
@@ -8,6 +9,7 @@ NUM_FRAMES = 10
 
 class ZeluxCamera(microscope.abc.Camera):
     def __init__(self):
+        self._fetch_thread = None
         self.zelux = TLCameraSDK()
         available_cameras = self.zelux.discover_available_cameras()
         if len(available_cameras) < 1:
@@ -72,6 +74,32 @@ class ZeluxCamera(microscope.abc.Camera):
 
     def stop_acquisition(self):
         self.camera.disarm()
+
+    def _fetch_data_continuously(self):
+        frame_count = 0
+        while self._fetch_thread is not None:
+            # Fetch the frame
+            frame_data, count = self._fetch_data()
+
+            if frame_data is not None:
+                frame_count += 1
+
+                # Display the frame live
+                cv2.imshow("Live Camera Feed", frame_data)
+                
+                # Save frames
+                file_name = f"frame_{frame_count}.png"
+                cv2.imwrite(file_name, frame_data)
+                print(f"Frame #{count} displayed and saved as {file_name}")
+
+                # Press q to exit live display
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break 
+
+            else:
+                print("No frame received or timeout reached")
+
+        cv2.destroyAllWindows()
 
     def grab_frame(self):
         # Grab a frame from the camera
