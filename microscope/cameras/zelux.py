@@ -1,9 +1,8 @@
 import numpy as np
 import cv2
-from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
-
 import microscope
 import microscope.abc
+from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
 
 NUM_FRAMES = 10
 
@@ -16,14 +15,16 @@ class ZeluxCamera(microscope.abc.Camera):
             raise RuntimeError("No cameras detected")
 
         self.camera = self.zelux.open_camera(available_cameras[0])
+        print(f"Camera serial number: {self.camera.serial_number}")
         self.camera.exposure_time_us = 11000
         self.camera.frames_per_triffer_zero_for_unlimited = 0
-        self.camera.image_poll_timeout_ms = 1000
+        self.camera.image_poll_timeout_ms = 30000
         self.old_roi = self.camera.roi 
 
     def _do_shutdown(self):
-        self.camera.disarm()
-        self.camera.close()
+        if self.camera.is_armed:
+            self.camera.disarm()
+        self.camera.dispose()
         self.zelux.dispose()
 
     def _do_trigger(self):
@@ -57,10 +58,11 @@ class ZeluxCamera(microscope.abc.Camera):
 
     def set_exposure_time(self, exposure_time):
         # Set the camera exposure time in seconds
-        self.camera.exposure_time_us = int(exposure_time * 1e6)
+        self.camera.exposure_time_us = 50000     #int(exposure_time * 1e6)
 
     def set_trigger(self, trigger_type, trigger_mode):
         # Set the camera's trigger type and mode
+        #self.camera.operation_mode = OPERATION_MODE.FREE_RUN
         self.camera.operation_mode = OPERATION_MODE.SOFTWARE_TRIGGERED
 
     def trigger_mode(self):
@@ -70,7 +72,9 @@ class ZeluxCamera(microscope.abc.Camera):
         return 'software'
 
     def start_acquisition(self):
+        print("Starting acquisition")
         self.camera.arm(2)
+        print("Camera is armed: ", self.camera.is_armed)
 
     def stop_acquisition(self):
         self.camera.disarm()
@@ -102,13 +106,19 @@ class ZeluxCamera(microscope.abc.Camera):
         cv2.destroyAllWindows()
 
     def grab_frame(self):
-        # Grab a frame from the camera
-        frame = self.camera.get_pending_frame_or_null()
-        if frame is not None:
-            print(f"Frame #{frame.frame_count} received")
-            # Make a deep copy of the image buffer
-            return np.copy(frame.image_buffer)
-        else:
+        if not self.camera.is_armed:
+            print("Camera is not armed. Arming now...")
+            self.camera.arm(2)
+        print("camera is armed: ", self.camera.is_armed)
+        
+        for _ in range(5):
+            frame = self.camera.get_pending_frame_or_null()
+            if frame is not None:
+                print(f"Frame #{frame.frame_count} received")
+                # Make a deep copy of the image buffer
+                return np.copy(frame.image_buffer)
+            else:
+                print("No frames received, retrying...")
             print("Timeout reached during polling")
             return None
 
@@ -118,17 +128,20 @@ class ZeluxCamera(microscope.abc.Camera):
         for i in range(num_frames):
             image = self.grab_frame()
             if image is None:
-                print("No more frames received, exiting")
-                break
+                print(f"No frames received for {i+1}")
+            else:
+                print(f"Frame {i+1} acquired")
         self.stop_acquisition()
     
     def close(self):
+        if self.camera.is_armed:
+            self.camera.disarm()
         # Close the camera and SDK when done
-        self.camera.close()
+        self.camera.dispose()
         self.zelux.dispose()
 
 camera = ZeluxCamera()
-try:
-    camera.acquire_images(NUM_FRAMES)
-finally:
-    camera.close()
+#try:
+camera.acquire_images(NUM_FRAMES)
+#finally:
+#    camera.dispose()
