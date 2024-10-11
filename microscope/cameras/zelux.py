@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import microscope
 import microscope.abc
-from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
+from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE, TRIGGER_POLARITY  #, TLCamera
 
 NUM_FRAMES = 10
 
@@ -10,12 +10,15 @@ class ZeluxCamera(microscope.abc.Camera):
     def __init__(self):
         self._fetch_thread = None
         self.zelux = TLCameraSDK()
+        #self.zeltest = TLCamera()
         available_cameras = self.zelux.discover_available_cameras()
         if len(available_cameras) < 1:
             raise RuntimeError("No cameras detected")
 
         self.camera = self.zelux.open_camera(available_cameras[0])
         print(f"Camera serial number: {self.camera.serial_number}")
+        print(f"hdw trigger rising edge 0, falling edge 1: {self.camera.trigger_polarity}")
+        #print(f"the hardware trigger is supported: {self.zeltest.get_is_operation_mode_supported}")
         self.camera.exposure_time_us = 11000
         self.camera.frames_per_triffer_zero_for_unlimited = 0
         self.camera.image_poll_timeout_ms = 30000
@@ -29,6 +32,7 @@ class ZeluxCamera(microscope.abc.Camera):
 
     def _do_trigger(self):
         self.camera.issue_software_trigger()
+        #self.camera.issue_hardware_trigger()
 
     def _fetch_data(self):
         frame = self.camera.get_pending_frame_or_null()
@@ -62,14 +66,20 @@ class ZeluxCamera(microscope.abc.Camera):
 
     def set_trigger(self, trigger_type, trigger_mode):
         # Set the camera's trigger type and mode
-        #self.camera.operation_mode = OPERATION_MODE.FREE_RUN
-        self.camera.operation_mode = OPERATION_MODE.SOFTWARE_TRIGGERED
+        if trigger_type == 'hardware':
+            self.camera.operation_mode = OPERATION_MODE.HARDWARE_TRIGGERED
+            self.camera.trigger_polarity = TRIGGER_POLARITY.ACTIVE_HIGH
+        else:
+            self.camera.operation_mode = OPERATION_MODE.SOFTWARE_TRIGGERED
 
     def trigger_mode(self):
-        return OPERATION_MODE.SOFTWARE_TRIGGERED
+        return self.camera.operation_mode
 
     def trigger_type(self):
-        return 'software'
+        if self.camera.operation_mode == OPERATION_MODE.HARDWARE_TRIGGERED:
+            return 'hardware'
+        elif self.camera.operation_mode == OPERATION_MODE.SOFTWARE_TRIGGERED:
+            return 'software'
 
     def start_acquisition(self):
         print("Starting acquisition")
@@ -143,5 +153,7 @@ class ZeluxCamera(microscope.abc.Camera):
 camera = ZeluxCamera()
 #try:
 camera.acquire_images(NUM_FRAMES)
+#camera.set_trigger('hardware', 'rising_edge')
+camera.set_trigger('software', None)
 #finally:
 #    camera.dispose()
