@@ -6,7 +6,6 @@ from microscope.cameras.SDK.Python_Toolkit.thorlabs_tsi_sdk.thorlabs_tsi_sdkpy.t
 
 NUM_FRAMES = 10
 
-### ask Benji to have only one zelux switched on #####
 
 class ZeluxCamera(microscope.abc.Camera):
     def __init__(self):
@@ -16,7 +15,7 @@ class ZeluxCamera(microscope.abc.Camera):
         if len(available_cameras) < 1:
             raise RuntimeError("No cameras detected")
 
-        self.camera = self.zelux.open_camera(available_cameras)
+        self.camera = self.zelux.open_camera(available_cameras[0])
         if self.camera is None:
             raise RuntimeError("Failed to open camera")
 
@@ -154,10 +153,10 @@ class ZeluxCamera(microscope.abc.Camera):
         self.camera.dispose()
         self.zelux.dispose()
 
-#camera = ZeluxCamera()
+camera = ZeluxCamera()
 try:
-    ZeluxCamera.acquire_images(NUM_FRAMES)
-#cam.set_trigger('hardware', 'rising_edge')
-    ZeluxCamera.set_trigger('software', None)
+    #camera.set_trigger('hardware', 'rising_edge')
+    camera.set_trigger('software', None)
+    camera.acquire_images(NUM_FRAMES)
 finally:
-    ZeluxCamera.close
+    camera.close()
