@@ -57,8 +57,8 @@ _logger = logging.getLogger(__name__)
 #    return wrapper
 
 
-#class HubCwave(microscope.abc.LightSource)
-class HubCwave():      
+class HubCwave(microscope.abc.LightSource):
+#class HubCwave():      
     def __init__(self, address, port, log_interval=1, **kwargs):
         super().__init__(**kwargs)
         self.address = address
@@ -79,6 +79,15 @@ class HubCwave():
                 if attempt < retries - 1:
                     time.sleep(delay)
         raise ConnectionError(f"All connection attempts failed, trying to connect to {address}:{port}")
+
+    def enable(self):
+        self._cwave.set_laser(True)
+        self._is_on = True
+
+    def disable(self):
+        self._cwave.set_laser(False)
+        self._cwave.disconnect()
+        self._is_on = False
 
 #    @error_handling
     def get_status(self) -> typing.List[str]:
@@ -126,7 +135,7 @@ class HubCwave():
         
 #    @error_handling    
     def get_is_on(self) -> bool:
-        return self._cwave.get_laser()
+        return self._is_on
         
 #    @error_handling    
     def _do_get_power(self) -> float:
