@@ -7,7 +7,7 @@ import threading
 import inspect
 import logging
 import microscope
-from microscope.lights.cwave_old import *
+from microscope.lights.cwave import *
 from datetime import datetime
 import microscope.abc
 
@@ -57,8 +57,7 @@ _logger = logging.getLogger(__name__)
 #    return wrapper
 
 
-class HubCwave(microscope.abc.LightSource):
-#class HubCwave():      
+class HubCwave(microscope.abc.LightSource):     
     def __init__(self, address, port, log_interval=1, **kwargs):
         super().__init__(**kwargs)
         self.address = address
@@ -66,6 +65,8 @@ class HubCwave(microscope.abc.LightSource):
         self._cwave = CWave()
         self.log_interval = log_interval
         self._stop_logging = threading.Event()
+        self._trigger_mode = "internal" # Default trigger mode
+        self._trigger_type = "edge" # Default trigger type
 
 #    @error_handling
     def hubconnect(self, retries=3, delay=5):
@@ -81,13 +82,72 @@ class HubCwave(microscope.abc.LightSource):
         raise ConnectionError(f"All connection attempts failed, trying to connect to {address}:{port}")
 
     def enable(self):
-        self._cwave.set_laser(True)
-        self._is_on = True
+        try:
+            self._cwave.set_laser(True)
+            self._is_on = True
+            self.logger.info("Laser enabled")
+        except Exception as e:
+            self.logger.error(f"Failed to enable laser: {e}")
 
     def disable(self):
+
         self._cwave.set_laser(False)
         self._cwave.disconnect()
         self._is_on = False
+
+    def _do_shutdown(self):
+        self.disable()
+
+    def _do_trigger(self):
+        if self._trigger_mode == "external":
+            self.logger.info("Waiting for external trigger signal...")
+            external_signal = self._cwave.get_external_signal()
+
+            if external_signal:
+                if self._trigger_type == "edge":
+                    self.logger.info("External edge trigger received")
+                    self.fire_laser()
+                elif self._trigger_type == "level":
+                    self.logger.info("External level trigger activated")
+                    self._control_laser_by_signal_level()
+            else:
+                # internal trigger logic
+                self.logger.warning("No external trigger signal detected")
+        else:
+            # internal trigger logic
+            self.logger.info("Internal trigger activated")
+            self._fire_laser()
+
+    def set_trigger(self, mode:str):
+        if mode not in ["internal", "external"]:
+            raise ValueError("Unsupported trigger mode")
+        self._trigger_mode = mode 
+        self.logger.info(f"Trigger mode set to {mode}")
+
+    def trigger_mode(self) -> str:
+        return "internal"  # Update based on our current trigger mode 
+
+    def set_trigger_type(self, trigger_type:str):
+        if trigger_type not in ["edge", "level"]:
+            raise ValueError("Unsupported trigger type. Choose 'edge' or 'level'.")
+        self._trigger_type = trigger_type
+        self.logger.info(f"Trigger type set to {trigger_type}")
+    
+    def trigger_type(self) -> str:
+        return self._trigger_type
+
+    def _fire_laser(self):
+        self.cwave.set_laser(True)
+        self.logger.info("Laser fired successfully")
+
+    def _control_laser_by_signal_level(self):
+        signal_level = self._cwave.get_signal_level()
+        if signal_level > 0.5:
+            self.logger.info("External signal high, firing laser")
+            self._fire_laser()
+        else:
+            self.logger.info("External signal low, turning laser off")
+            self._cwave.set_laser(False)
 
 #    @error_handling
     def get_status(self) -> typing.List[str]:
