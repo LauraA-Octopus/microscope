@@ -4,7 +4,6 @@ import logging
 from enum import Enum
 import microscope
 import microscope.abc
-from microscope.lights import LightSourceStatus
 
 def is_bit_set(byte: bytes, position:int) -> bool:
     return int(byte) & (1 << position) != 0
@@ -131,7 +130,7 @@ class CalibrationResult(Enum):
 
 
 class PhoxXLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
-    """Control and query an Omicron laser/LED device."""
+    """Control and query an Omicron PhoxX laser/LED device."""
 
     def __init__(self, com, baud=9600, timeout=2.0, **kwargs):
         super().__init__(**kwargs)
@@ -247,11 +246,11 @@ class PhoxXLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
     def set_name(self, name: str) -> None:
         self._set(b"SNA", name.encode("Latin1"))
 
-    @microscope.abc.SerialDeviceMixin.lock_comms
+    @property
     def power_off(self) -> None:
         self._set(b"SPO", b"1")
 
-    @microscope.abc.SerialDeviceMixin.lock_comms
+    @property
     def power_on(self) -> None:
         self._set(b"SPO", b"0")
 
