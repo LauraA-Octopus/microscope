@@ -1,9 +1,10 @@
-from serial import Serial
+from ast import List
 import serial
 import logging
 from enum import Enum
 import microscope
 import microscope.abc
+from microscope.lights import LightSourceStatus
 
 def is_bit_set(byte: bytes, position:int) -> bool:
     return int(byte) & (1 << position) != 0
@@ -129,7 +130,7 @@ class CalibrationResult(Enum):
     UNKNOWN_ERROR = 14
 
 
-class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
+class PhoxXLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
     """Control and query an Omicron laser/LED device."""
 
     def __init__(self, com, baud=9600, timeout=2.0, **kwargs):
@@ -195,8 +196,12 @@ class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource)
         return float(self._ask(b"MTA")[0])
 
     @microscope.abc.SerialDeviceMixin.lock_comms
-    def get_status(self) -> Status:
-        return Status(self._ask_bytes(b"GAS"))
+    def get_status(self) -> List[str]:
+        raw_status = self._ask_bytes(b"GAS")
+        status = Status(raw_status)
+        return [f"{key}={value}" for key, value in vars(status).items()]
+    #def get_status(self) -> Status:
+    #    return Status(self._ask_bytes(b"GAS"))
 
     @microscope.abc.SerialDeviceMixin.lock_comms
     def get_failure_bytes(self) -> bytes:
@@ -208,7 +213,10 @@ class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource)
 
     @microscope.abc.SerialDeviceMixin.lock_comms
     def get_level_power(self) -> int:
-        return int(self._ask(b"GLP")[0], 16)   
+        return int(self._ask(b"GLP")[0], 16)  
+
+    def _do_get_power(self) -> float:
+         return self.get_level_power() / 65535.0
     
     @microscope.abc.SerialDeviceMixin.lock_comms
     def set_level_power(self, level: int) -> None:
@@ -218,6 +226,10 @@ class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource)
     def set_level_power_percent(self, percent: float) -> None:
         level = int((percent / 100.0) * 65535)
         self.set_level_power(level)
+
+    def _do_set_power(self, power: float) -> None:
+        percent = max(min(power, 1.0), 0.0) * 100.0
+        self.set_level_power_percent(percent)
 
     @microscope.abc.SerialDeviceMixin.lock_comms
     def get_operation_mode(self) -> OperationMode:
@@ -274,17 +286,17 @@ class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource)
         self._set(b"SLP", f"{self._calculate_target_value(percent, 16):04x}".encode("Latin1"))
 
     @microscope.abc.SerialDeviceMixin.lock_comms
-    def is_on(self) -> bool:
+    def get_is_on(self) -> bool:
         return self.get_status().on
 
     @microscope.abc.SerialDeviceMixin.lock_comms
-    def turn_on(self) -> None:
-        if not self.is_on():
+    def enable(self) -> None:
+        if not self.get_is_on():
             self._set(b"LC1", b"")
 
     @microscope.abc.SerialDeviceMixin.lock_comms
-    def turn_off(self) -> None:
-        if self.is_on():
+    def disable(self) -> None:
+        if self.get_is_on():
             self._set(b"LC0", b"")
 
 @microscope.abc.SerialDeviceMixin.lock_comms
@@ -293,13 +305,13 @@ def run_omicron_laser_example():
 
     try:
         with serial.Serial('COM14', 9600, timeout=1) as connection:
-            omicron_laser = OmicronLaser(connection)
+            omicron_laser = PhoxXLaser(connection)
 
             logging.info(f"Laser Model: {omicron_laser.model_code}")
             logging.info(f"Serial Number: {omicron_laser.serial_number}")
             logging.info(f"Firmware Version: {omicron_laser.firmware_version}")
 
-            omicron_laser.turn_on()
+            omicron_laser.enable()
             logging.info(f"Laser Power (before setting): {omicron_laser.get_level_power()}")
 
             omicron_laser.set_level_power_percent(50.0)
