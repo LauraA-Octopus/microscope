@@ -2,6 +2,8 @@ from serial import Serial
 import serial
 import logging
 from enum import Enum
+import microscope
+import microscope.abc
 
 def is_bit_set(byte: bytes, position:int) -> bool:
     return int(byte) & (1 << position) != 0
@@ -127,14 +129,24 @@ class CalibrationResult(Enum):
     UNKNOWN_ERROR = 14
 
 
-class OmicronLaser:
+class OmicronLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
     """Control and query an Omicron laser/LED device."""
 
-    def __init__(self, connection: Serial):
-        self._conn = connection
+    def __init__(self, com, baud=9600, timeout=2.0, **kwargs):
+        super().__init__(**kwargs)
+        self.connection = serial.Serial(
+            port=com,
+            baudrate=baud,
+            timeout=timeout,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE
+        )
+        self._conn = self.connection
         self.temporal_power = 0.0
         self._initialize_device()
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _initialize_device(self):
         firmware = self._ask(b"GFw")
         self.model_code, self.device_id, self.firmware_version = firmware[:3]
@@ -143,18 +155,22 @@ class OmicronLaser:
         self.wavelength, self.power = specs[:2]
         self.max_power = float(self._ask(b"GMP")[0])
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _ask(self, command: bytes) -> list[str]:
         self._conn.write(b"?" + command + b"|\r")
         return self._conn.read_until(b'\r').decode("Latin1")[4:].strip().split("|")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _ask_bytes(self, command: bytes) -> bytes:
         self._conn.write(b"?" + command + b"|\r")
         return self._conn.read_until(b'\r')[4:-1]
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _set(self, command: bytes, value: bytes) -> list[str]:
         self._conn.write(b"?" + command + value + b"|\r")
         return self._conn.read_until(b'\r').decode("Latin1")[4:].strip().split("|")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _process_adhoc(self):
         while (raw := self._conn.read_until(b'\r')) != b'':
             decoded = raw[:-1].decode("Latin1")
@@ -162,95 +178,121 @@ class OmicronLaser:
             if command.startswith("$TPP"):
                 self.temporal_power = float(content[0])
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_working_hours(self) -> str:
         return self._ask(b"GWH")[0]
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def measure_diode_power(self) -> float:
         return float(self._ask(b"MDP")[0])
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def measure_temperature_diode(self) -> float:
         return float(self._ask(b"MTD")[0])
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def measure_temperature_ambient(self) -> float:
         return float(self._ask(b"MTA")[0])
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_status(self) -> Status:
         return Status(self._ask_bytes(b"GAS"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_failure_bytes(self) -> bytes:
         return self._ask_bytes(b"GFB")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_latched_failure(self) -> LatchedFailure:
         return LatchedFailure(self._ask_bytes(b"GLF"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_level_power(self) -> int:
         return int(self._ask(b"GLP")[0], 16)   
     
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def set_level_power(self, level: int) -> None:
         self._set(b"SLP", hex(level)[2:].encode("Latin1"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def set_level_power_percent(self, percent: float) -> None:
         level = int((percent / 100.0) * 65535)
         self.set_level_power(level)
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_operation_mode(self) -> OperationMode:
         return OperationMode(self._ask_bytes(b"GOM"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def set_operation_mode(self, mode: OperationMode) -> None:
         self._set(b"SOM", bytes(mode))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_name(self) -> str:
         return self._ask(b"GNA")[0]
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def set_name(self, name: str) -> None:
         self._set(b"SNA", name.encode("Latin1"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def power_off(self) -> None:
         self._set(b"SPO", b"1")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def power_on(self) -> None:
         self._set(b"SPO", b"0")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def get_calibration_wavelengths(self) -> list[int]:
         return [int(w) for w in self._ask(b"GCW")]
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def start_calibration(self, wavelength: int) -> CalibrationResult:
         res = int(self._set(b"SCP", hex(wavelength)[2:].encode("Latin1"))[0], 16)
         return CalibrationResult(res)
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def start_calibration_safety(self, wavelength: int) -> CalibrationResult:
         res = int(self._set(b"SCS", hex(wavelength)[2:].encode("Latin1"))[0], 16)
         return CalibrationResult(res)
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def enable_adhoc_mode(self) -> None:
         self._set(b"SAH", b"1")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def disable_adhoc_mode(self) -> None:
         self._set(b"SAH", b"0")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def _calculate_target_value(self, percent: float, bits: int) -> int:
         return int((percent / 100.0) * (2 ** bits - 1))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def set_power_level_percent(self, percent: float) -> None:
         self._set(b"SLP", f"{self._calculate_target_value(percent, 16):04x}".encode("Latin1"))
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def is_on(self) -> bool:
         return self.get_status().on
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def turn_on(self) -> None:
         if not self.is_on():
             self._set(b"LC1", b"")
 
+    @microscope.abc.SerialDeviceMixin.lock_comms
     def turn_off(self) -> None:
         if self.is_on():
             self._set(b"LC0", b"")
 
-
+@microscope.abc.SerialDeviceMixin.lock_comms
 def run_omicron_laser_example():
     logging.basicConfig(level=logging.DEBUG)
 
     try:
-        with serial.Serial('COM3', 9600, timeout=1) as connection:
+        with serial.Serial('COM14', 9600, timeout=1) as connection:
             omicron_laser = OmicronLaser(connection)
 
             logging.info(f"Laser Model: {omicron_laser.model_code}")
@@ -269,7 +311,7 @@ def run_omicron_laser_example():
         logging.error(f"An error occurred: {e}")
 
 
-if __name__ == "__main__":
-    run_omicron_laser_example()
+#if __name__ == "__main__":
+#    run_omicron_laser_example()
         
     
